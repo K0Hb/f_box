@@ -1,6 +1,11 @@
 require 'rails_helper'
 
 RSpec.describe 'Base', type: :request do
+  after(:each) do
+    redis = Redis::Namespace.new('f_box', redis: Redis.new)
+    redis.del(Time.now.to_i)
+  end
+
   describe 'POST /visited_links' do
     let(:headers) { { 'Content-Type' => 'application/json' } }
 
@@ -89,14 +94,33 @@ RSpec.describe 'Base', type: :request do
 
     context 'when two requests one moment' do
       it 'return correct domains' do
-        post '/api/v1/visited_links', params: { links: %w[test_url1 test_url2] }.to_json, headers: headers
-        post '/api/v1/visited_links', params: { links: %w[test_url3 test_url4] }.to_json, headers: headers
+        post '/api/v1/visited_links', params: { links: %w[test_url1] }.to_json, headers: headers
+        post '/api/v1/visited_links', params: { links: %w[test_url3] }.to_json, headers: headers
 
         get '/api/v1/visited_domains', params: get_params
 
         expect(response.status).to eq(200)
         expect(JSON.parse(response.body)['status']).to eq('OK')
-        expect(JSON.parse(response.body)['domains']).to eq(%w[test_url1 test_url2])
+        expect(JSON.parse(response.body)['domains']).to eq(%w[test_url3 test_url1])
+      end
+    end
+
+    context 'when two requests one moment' do
+      let(:headers) { { 'Content-Type' => 'application/json' } }
+      let(:get_params) { { to: Time.now.to_i - 2, from: Time.now.to_i + 5 } }
+
+      it 'return correct domains' do
+        post '/api/v1/visited_links', params: { links: %w[test_url_10] }.to_json, headers: headers
+        sleep(1)
+        post '/api/v1/visited_links', params: { links: %w[test_url_20] }.to_json, headers: headers
+        sleep(1)
+        post '/api/v1/visited_links', params: { links: %w[test_url_30] }.to_json, headers: headers
+
+        get '/api/v1/visited_domains', params: get_params
+
+        expect(response.status).to eq(200)
+        expect(JSON.parse(response.body)['status']).to eq('OK')
+        expect(JSON.parse(response.body)['domains']).to eq(%w[test_url_10 test_url_20 test_url_30])
       end
     end
   end
