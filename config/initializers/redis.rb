@@ -1,0 +1,1 @@
+redis = Redis::Namespace.new("f_box", :redis => Redis.new)
