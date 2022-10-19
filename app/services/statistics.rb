@@ -41,12 +41,16 @@ class Statistics
 
     (from..to).each do |data|
       begin
-        result.add(@redis.get(data)) if @redis.get(data)
+        if @redis.get(data)
+          Marshal.load(@redis.get(data)).each do |url|
+            result.add(url)
+          end
+        end
       rescue Redis::BaseError => e
         return { status: 'fail', message: e.message }
       end
     end
 
-    { domains: result.map { |url| Marshal.load(url) } }
+    { domains: result.to_a }
   end
 end
