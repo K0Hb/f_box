@@ -1,35 +1,23 @@
 require 'set'
 
 class Statistics
-  def initialize(params, mode)
+  DB_NAME = 'f_box'
+
+  def initialize(params, mode, db_name = nil)
     @params = params
     @mode = mode
-    @redis = Redis::Namespace.new("f_box", :redis => Redis.new)
+    @db_name = db_name || DB_NAME
+    @redis = Redis::Namespace.new(@db_name, redis: Redis.new)
   end
-
-  def self.call(*args)
-    new(*args).main
-  end
-
-  def main
-    if @mode == 'write'
-      write
-    elsif @mode == 'get'
-      search_data
-    end
-  end
-
-  private
 
   def write
     key = Time.now.to_i
     byte_str = Marshal.dump(@params)
 
     begin
-      @redis.set(key, byte_str)
-      { status: 'ok', time: key, data: @redis.get(key) }
+      { status: @redis.set(key, byte_str), l: @params }
     rescue Redis::BaseError => e
-      { status: 'fail', message: e.message }
+      { status: e.message }
     end
   end
 
@@ -39,18 +27,24 @@ class Statistics
 
     result = Set.new()
 
-    (from..to).each do |data|
+    (from..to).each do |date|
       begin
-        if @redis.get(data)
-          Marshal.load(@redis.get(data)).each do |url|
+        unless check_data(date)
+          Marshal.load(@redis.get(date)).each do |url|
             result.add(url)
           end
         end
       rescue Redis::BaseError => e
-        return { status: 'fail', message: e.message }
+        return { status: e.message }
       end
     end
 
-    { domains: result.to_a }
+    { domains: result.to_a, status: 'OK' }
+  end
+
+  private
+
+  def check_data(date)
+    @redis.get(date).nil?
   end
 end
