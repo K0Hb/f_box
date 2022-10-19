@@ -105,7 +105,7 @@ RSpec.describe 'Base', type: :request do
       end
     end
 
-    context 'when two requests one moment' do
+    context 'when sequential requests, interval 1 sec' do
       let(:headers) { { 'Content-Type' => 'application/json' } }
       let(:get_params) { { to: Time.now.to_i - 2, from: Time.now.to_i + 5 } }
 
