@@ -18,7 +18,7 @@ class Statistics
     array_to_str = Marshal.dump(links)
 
     begin
-      { status: @redis.set(key, array_to_str), l: key }
+      { status: @redis.set(key, array_to_str) }
     rescue Redis::BaseError => e
       { status: e.message }
     end
