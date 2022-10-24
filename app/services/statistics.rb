@@ -1,4 +1,5 @@
 require 'set'
+require 'uri/http'
 
 class Statistics
   DB_NAME = 'f_box'
@@ -13,41 +14,38 @@ class Statistics
   def write
     key = Time.now.to_i
     links = @params
-    links = links + Marshal.load(@redis.get(key)) unless @redis.get(key).nil? # merge old & new array
-
-    array_to_str = Marshal.dump(links)
 
     begin
-      { status: @redis.set(key, array_to_str) }
+      links.each { |url| @redis.zadd('links', key, url) }
     rescue Redis::BaseError => e
       { status: e.message }
     end
+
+    { status: 'OK' }
   end
 
   def search_data
     from, to = @params[:from].to_i, @params[:to].to_i
     from, to = to, from if from > to # reverse
 
-    result = Set.new()
+    result = Set.new
 
-    (from..to).each do |date|
-      begin
-        unless check_data(date)
-          Marshal.load(@redis.get(date)).each do |url|
-            result.add(url)
-          end
-        end
-      rescue Redis::BaseError => e
-        return { status: e.message }
-      end
+    begin
+      urls = @redis.zrangebyscore('links', from, to)
+    rescue Redis::BaseError => e
+      return { status: e.message }
     end
 
-    { domains: result.to_a, status: 'OK' }
+    urls.each { |url| result.add(parse_domain(url)) }
+
+    { domains: result, status: 'OK' }
   end
 
   private
 
-  def check_data(date)
-    @redis.get(date).nil?
+  def parse_domain(url)
+    url = URI.parse(url)
+    url = URI.parse("http://#{url}") if url.scheme.nil?
+    url.host.downcase
   end
 end
