@@ -18,7 +18,7 @@ class Statistics
     begin
       links.each { |url| @redis.zadd('links', key, url) }
     rescue Redis::BaseError => e
-      { status: e.message }
+      return { status: e.message }
     end
 
     { status: 'OK' }
